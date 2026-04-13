@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<meta name="theme-color" content="#065A82">
+<title>FishNet PRO — Diagnóstico + Firebase</title>
+<script type="module">
+  // ==================== TU CONFIGURACIÓN ====================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDkvaqQ-cQPmNIXe5Yyv31pOTh67K3dBdo",
+    authDomain: "fishnet-app-407c4.firebaseapp.com",
+    databaseURL: "https://fishnet-app-407c4-default-rtdb.firebaseio.com",
+    projectId: "fishnet-app-407c4",
+    storageBucket: "fishnet-app-407c4.firebasestorage.app",
+    messagingSenderId: "681193365927",
+    appId: "1:681193365927:web:d496d633a6eec7dca61682",
+    measurementId: "G-TVQMN5BHD9"
+  };
+  // ===========================================================
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  window.showToast = function(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    if(!toast) return;
+    toast.textContent = msg;
+    toast.style.background = isError ? '#b91c1c' : '#0A2463cc';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 4000);
+  };
+
+  // DIAGNÓSTICO: mostrar en consola si la autenticación está disponible
+  console.log("Firebase inicializado. Proyecto:", firebaseConfig.projectId);
+  console.log("Métodos de autenticación disponibles (debes habilitar Email/Password en Firebase Console)");
+
+  // Función de diagnóstico que el usuario puede ejecutar
+  window.runDiagnostic = async function() {
+    showToast("🔍 Ejecutando diagnóstico... revisa la consola (F12)");
+    console.log("=== DIAGNÓSTICO FIRESTORE ===");
+    console.log("Configuración:", firebaseConfig);
+    try {
+      const authInstance = getAuth();
+      console.log("Auth inicializado correctamente");
+      // Intentar obtener métodos para un email de prueba (no importa si falla)
+      const methods = await fetchSignInMethodsForEmail(auth, "test@diagnostico.com");
+      console.log("Métodos de autenticación disponibles para test@diagnostico.com:", methods);
+      if(methods.length === 0) {
+        console.warn("⚠️ El email no está registrado, puedes crear uno nuevo.");
+      }
+      console.log("✅ Firebase parece conectado. Si el método Email/Password está habilitado, deberías poder registrarte.");
+    } catch(e) {
+      console.error("❌ Error en diagnóstico:", e);
+      showToast("Error de conexión: " + e.message, true);
+    }
+  };
+
+  window.loginUser = async function() {
+    const email = document.getElementById('login-email').value.trim();
+    const pwd = document.getElementById('login-password').value;
+    if(!email || !pwd) {
+      showToast("Correo y contraseña requeridos", true);
+      return;
+    }
+    if(pwd.length < 6) {
+      showToast("La contraseña debe tener al menos 6 caracteres", true);
+      return;
+    }
+    try {
+      await signInWithEmailAndPassword(auth, email, pwd);
+      showToast("✅ Sesión iniciada correctamente");
+      closeLoginModal();
+    } catch(e) {
+      console.error("Error completo:", e);
+      if(e.code === 'auth/user-not-found') {
+        // Intentar crear el usuario
+        try {
+          await createUserWithEmailAndPassword(auth, email, pwd);
+          showToast("🎉 Cuenta creada. Ahora completa tu perfil.");
+          closeLoginModal();
+        } catch(err) {
+          if(err.code === 'auth/weak-password') showToast("Contraseña muy débil (mínimo 6 caracteres)", true);
+          else if(err.code === 'auth/email-already-in-use') showToast("El email ya existe, prueba con otra contraseña", true);
+          else showToast("Error al crear: "+err.message, true);
+        }
+      } else if(e.code === 'auth/wrong-password') {
+        showToast("❌ Contraseña incorrecta. Intenta de nuevo.", true);
+      } else if(e.code === 'auth/invalid-email') {
+        showToast("Correo electrónico no válido", true);
+      } else if(e.code === 'auth/too-many-requests') {
+        showToast("Demasiados intentos. Espera un momento.", true);
+      } else if(e.code === 'auth/invalid-credential') {
+        showToast("❌ Credenciales inválidas. ¿Has habilitado Email/Password en Firebase Console?", true);
+        console.error("Posible causa: Método de autenticación no habilitado en Firebase Console → Authentication → Sign-in methods → Email/Password");
+      } else {
+        showToast("Error: "+e.message, true);
+      }
+    }
+  };
+
+  window.closeLoginModal = () => document.getElementById('modal-login')?.classList.remove('open');
+  window.openLoginModal = () => document.getElementById('modal-login')?.classList.add('open');
+
+  onAuthStateChanged(auth, (user) => {
+    const profileBtn = document.getElementById('open-profile-btn');
+    if(user) {
+      if(profileBtn) profileBtn.innerHTML = `👤 ${user.email}`;
+      showToast(`Bienvenido ${user.email}`);
+    } else {
+      if(profileBtn) profileBtn.innerHTML = `🔐 Ingresar`;
+      setTimeout(() => openLoginModal(), 500);
+    }
+  });
+
+  window.logoutApp = async function() { await signOut(auth); showToast("Sesión cerrada"); location.reload(); };
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0b2b3b; font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  .phone { width: 390px; height: 780px; background: rgba(8,18,28,0.9); border-radius: 44px; overflow: hidden; display: flex; flex-direction: column; position: relative; border: 1px solid #4CC9F0; }
+  .status-bar { padding: 12px 20px; display: flex; justify-content: space-between; color: white; }
+  .app-header { padding: 12px 20px; background: #065A82; display: flex; justify-content: space-between; align-items: center; }
+  .back-btn { background: rgba(255,255,255,0.2); border: none; border-radius: 30px; padding: 6px 14px; color: white; cursor: pointer; }
+  .screen { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+  .screen.active { display: block; }
+  .home-brand { font-size: 42px; font-weight: 800; background: linear-gradient(135deg,#fff,#7bc8e8); -webkit-background-clip: text; background-clip: text; color: transparent; text-align: center; margin: 20px 0; }
+  .main-btn { background: rgba(255,255,255,0.1); border: 1px solid #4CC9F0; border-radius: 60px; padding: 16px; margin: 10px 0; color: white; font-weight: bold; width: 100%; text-align: center; cursor: pointer; }
+  .sos-ring { width: 80px; height: 80px; background: #EF4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 20px auto; color: white; font-weight: bold; cursor: pointer; }
+  .modal-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #1e293b; border-radius: 32px; padding: 24px; width: 85%; color: white; }
+  .modal-box input { width: 100%; margin: 8px 0; padding: 12px; border-radius: 30px; border: none; background: #334155; color: white; }
+  .modal-box button { margin-top: 12px; padding: 12px; border-radius: 30px; background: #065A82; border: none; color: white; width: 100%; cursor: pointer; }
+  .toast { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: #0A2463cc; color: white; padding: 10px 20px; border-radius: 30px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 1100; }
+  .toast.show { opacity: 1; }
+  .diagnostic-btn { background: #f59e0b; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status-bar"><span>🌊 FishNet</span><span id="status-time"></span></div>
+  <div class="app-header"><span class="back-btn" onclick="location.reload()">⟳</span><span>🐟 Pesca Artesanal</span><button id="open-profile-btn" style="background:none; border:none; color:white;" onclick="openLoginModal()">🔐 Ingresar</button></div>
+  
+  <!-- Pantalla Home -->
+  <div class="screen active" id="s-home">
+    <div style="text-align:center; margin-top: 40px;">
+      <div class="home-brand">FishNet</div>
+      <div style="color:#9cc9e0;">Del mar a la mesa · trazable</div>
+      <button class="main-btn" onclick="openLoginModal()">🔐 Iniciar sesión / Registrarse</button>
+      <button class="main-btn diagnostic-btn" onclick="runDiagnostic()">🔍 Ejecutar diagnóstico (ver consola)</button>
+      <div class="sos-ring" onclick="alert('SOS simulado')">SOS</div>
+    </div>
+  </div>
+
+  <!-- Modal de login -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-box">
+      <h3>🌊 Acceso a FishNet</h3>
+      <input type="email" id="login-email" placeholder="tu@email.com" value="alimartinez46@googlemail.com">
+      <input type="password" id="login-password" placeholder="Contraseña (mínimo 6 caracteres)">
+      <button onclick="loginUser()">Ingresar / Registrarme</button>
+      <button onclick="closeLoginModal()" style="background:#334155;">Cancelar</button>
+      <hr style="margin:15px 0;">
+      <button onclick="runDiagnostic()" style="background:#f59e0b;">🔍 Diagnóstico</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+  window.updateTime = function() {
+    const now = new Date();
+    document.getElementById('status-time').innerText = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  };
+  setInterval(window.updateTime, 1000);
+  window.updateTime();
+</script>
+</body>
+</html>
