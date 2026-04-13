@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#065A82">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>FishNet</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- sql.js: SQLite compilado a WebAssembly, corre 100% en el navegador -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<style>
+:root{
+  --navy:#0A2463;--ocean:#065A82;--teal:#1C9E8B;--cyan:#4CC9F0;
+  --white:#FFFFFF;--light:#E8F4FD;--slate:#0D1B2A;
+  --green:#22C55E;--red:#EF4444;--amber:#F59E0B;--gray:#94A3B8;
+  --font-h:'Sora',sans-serif;--font-b:'DM Sans',sans-serif;
+  --radius:16px;--trans:0.2s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;width:100%;background:#0d1520;font-family:var(--font-b);overflow:hidden;overscroll-behavior:none;}
+.shell{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+.phone{width:min(390px,100vw);height:min(844px,100vh);background:var(--navy);border-radius:clamp(0px,3vw,32px);border:1.5px solid #1e3a5f;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 40px 80px rgba(0,0,0,0.6);}
+
+/* STATUS BAR */
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 16px 6px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.65);background:rgba(0,0,0,0.25);flex-shrink:0;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* HEADER */
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--ocean);flex-shrink:0;}
+.app-header-title{font-family:var(--font-h);font-size:17px;font-weight:700;color:white;}
+.back-btn{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:6px 14px;color:white;font-size:13px;cursor:pointer;font-family:var(--font-b);}
+.back-btn:active{background:rgba(255,255,255,0.25);}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;flex:1;overflow:hidden;animation:fadeIn 0.2s ease;}
+.screen.active{display:flex;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.scroll-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px;scrollbar-width:none;}
+.scroll-body::-webkit-scrollbar{display:none;}
+
+/* HOME */
+#s-home{background:linear-gradient(170deg,#065A82 0%,#0A2463 55%,#0D1B2A 100%);justify-content:space-between;}
+.home-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 24px;gap:14px;}
+.home-logo{width:84px;height:84px;border-radius:50%;border:2px solid rgba(76,201,240,0.4);overflow:hidden;flex-shrink:0;}
+.home-logo img{width:100%;height:100%;object-fit:cover;}
+.home-brand{font-family:var(--font-h);font-size:42px;font-weight:800;color:white;letter-spacing:-2px;line-height:1;}
+.home-tagline{font-size:13px;color:var(--cyan);text-align:center;max-width:260px;line-height:1.5;}
+.db-badge{display:flex;align-items:center;gap:7px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--green);font-weight:600;}
+.main-btns{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:4px;}
+.main-btn{display:flex;align-items:center;gap:12px;padding:15px 16px;border-radius:var(--radius);border:none;cursor:pointer;color:white;font-family:var(--font-b);width:100%;text-align:left;transition:transform var(--trans);}
+.main-btn:active{transform:scale(0.97);}
+.btn-pescador{background:var(--ocean);border:1.5px solid rgba(76,201,240,0.4);}
+.btn-comprador{background:var(--teal);}
+.btn-catalogo{background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.18);}
+.btn-auth{background:#1a5276;border:1px solid rgba(76,201,240,0.3);justify-content:center;margin-top:4px;}
+.btn-icon{font-size:24px;flex-shrink:0;}
+.btn-label{font-size:15px;font-weight:600;}
+.btn-sub{font-size:11px;opacity:0.7;margin-top:1px;}
+.btn-arrow{margin-left:auto;opacity:0.5;font-size:18px;}
+.home-sos-area{display:flex;flex-direction:column;align-items:center;padding:12px 24px 18px;gap:8px;}
+.sos-ring{width:72px;height:72px;border-radius:50%;background:var(--red);border:none;cursor:pointer;color:white;font-family:var(--font-h);font-size:14px;font-weight:800;box-shadow:0 0 0 6px rgba(239,68,68,0.18),0 0 0 12px rgba(239,68,68,0.06);transition:transform var(--trans);}
+.sos-ring:active{transform:scale(0.93);}
+.sos-hint{font-size:11px;color:var(--gray);}
+.admin-link{font-size:10px;color:#4b6b8f;cursor:pointer;margin-top:2px;}
+
+/* PESCADOR */
+#s-pescador{background:var(--navy);}
+.captura-hero{margin:12px;border-radius:var(--radius);background:linear-gradient(135deg,var(--ocean),#043d5c);border:1px solid rgba(76,201,240,0.2);padding:18px;text-align:center;cursor:pointer;}
+.captura-hero h2{font-family:var(--font-h);font-size:22px;font-weight:800;color:white;margin-top:6px;}
+.captura-hero p{font-size:12px;color:var(--cyan);margin-top:3px;}
+.species-row{display:flex;gap:8px;padding:0 12px;margin-bottom:12px;}
+.species-chip{flex:1;background:rgba(255,255,255,0.07);border-radius:12px;padding:10px 4px;text-align:center;cursor:pointer;border:1.5px solid transparent;transition:border-color var(--trans),background var(--trans);}
+.species-chip.active{border-color:var(--cyan);background:rgba(76,201,240,0.1);}
+.sp-emoji{font-size:26px;margin-bottom:3px;}
+.sp-name{font-size:11px;color:rgba(255,255,255,0.8);}
+.weight-row{display:flex;gap:10px;padding:0 12px 12px;align-items:flex-end;}
+.weight-field{flex:1;}
+.weight-field label{display:block;font-size:12px;color:var(--gray);margin-bottom:5px;}
+.weight-input{display:none;}
+.weight-input:focus{border-color:var(--cyan);}
+.price-field{flex:1;}
+.price-field label{display:block;font-size:12px;color:var(--gray);margin-bottom:5px;}
+.price-input{display:none;}
+.semaforo-card{border-radius:12px;padding:12px 8px;text-align:center;border:1px solid rgba(34,197,94,0.3);background:rgba(34,197,94,0.1);transition:all var(--trans);min-width:80px;}
+.semaforo-card.rojo{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.1);}
+.sem-dot{width:14px;height:14px;border-radius:50%;background:var(--green);margin:0 auto 4px;box-shadow:0 0 8px rgba(34,197,94,0.6);transition:all var(--trans);}
+.sem-dot.rojo{background:var(--red);box-shadow:0 0 8px rgba(239,68,68,0.6);}
+.sem-status{font-size:9px;color:var(--green);font-weight:700;transition:color var(--trans);}
+.sem-status.rojo{color:var(--red);}
+.sem-verdict{font-size:9px;font-weight:800;color:var(--green);transition:color var(--trans);}
+.sem-verdict.rojo{color:var(--red);}
+.pub-btn{margin:0 12px 8px;padding:15px;border-radius:14px;background:var(--teal);border:none;color:white;font-family:var(--font-h);font-size:15px;font-weight:700;cursor:pointer;width:calc(100% - 24px);transition:transform var(--trans);}
+.pub-btn:active{transform:scale(0.97);}
+.menu-list{padding:0 12px;display:flex;flex-direction:column;gap:8px;}
+.menu-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:rgba(255,255,255,0.06);border-radius:13px;border:none;color:white;font-size:14px;cursor:pointer;width:100%;font-family:var(--font-b);text-align:left;transition:background var(--trans);}
+.menu-item:active{background:rgba(255,255,255,0.14);}
+.menu-icon{font-size:18px;width:24px;text-align:center;}
+.menu-label{flex:1;}
+.menu-val{font-size:12px;color:var(--cyan);font-weight:700;}
+.catches-list{padding:8px 12px 0;display:flex;flex-direction:column;gap:8px;}
+.catch-item{background:rgba(255,255,255,0.05);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;border:0.5px solid rgba(255,255,255,0.08);}
+.catch-item-left{color:white;}
+.catch-item-especie{font-weight:700;font-size:14px;}
+.catch-item-detail{font-size:11px;color:var(--gray);margin-top:2px;}
+.catch-item-price{font-family:var(--font-h);font-size:16px;font-weight:800;color:var(--cyan);}
+
+
+/* ── FOTO CAPTURA ── */
+.foto-zone{margin:0 12px 10px;border-radius:14px;border:2px dashed rgba(76,201,240,0.35);background:rgba(255,255,255,0.04);overflow:hidden;cursor:pointer;transition:border-color var(--trans);}
+.foto-zone:active{border-color:var(--cyan);}
+.foto-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:6px;}
+.foto-placeholder-icon{font-size:36px;}
+.foto-placeholder-text{font-size:13px;color:var(--cyan);font-weight:600;}
+.foto-placeholder-sub{font-size:11px;color:var(--gray);}
+.foto-preview{width:100%;height:180px;object-fit:cover;display:none;}
+.foto-btns{display:flex;gap:8px;padding:8px;}
+.foto-btn{flex:1;padding:9px;border-radius:10px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-b);}
+.foto-btn-cam{background:var(--ocean);color:white;}
+.foto-btn-gal{background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);}
+.foto-btn-del{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.2);}
+/* ── FORM FIELDS ── */
+.form-section{padding:0 12px;margin-bottom:10px;}
+.form-label{font-size:12px;color:var(--gray);font-weight:600;margin-bottom:5px;display:block;letter-spacing:0.3px;}
+.form-input{width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 14px;color:white;font-size:15px;font-family:var(--font-b);outline:none;transition:border-color var(--trans);-webkit-appearance:none;}
+.form-input:focus{border-color:var(--cyan);}
+.form-input::placeholder{color:rgba(255,255,255,0.3);}
+.form-textarea{width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 14px;color:white;font-size:14px;font-family:var(--font-b);outline:none;resize:none;height:80px;transition:border-color var(--trans);-webkit-appearance:none;}
+.form-textarea:focus{border-color:var(--cyan);}
+.form-textarea::placeholder{color:rgba(255,255,255,0.3);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:10px;}
+/* ── SEMAFORO INLINE ── */
+.sem-inline{display:flex;align-items:center;gap:8px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:8px 12px;margin-bottom:10px;}
+.sem-inline.rojo{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.25);}
+.sem-dot-sm{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.sem-dot-sm.rojo{background:var(--red);}
+.sem-text{font-size:12px;color:var(--green);font-weight:700;}
+.sem-text.rojo{color:var(--red);}
+/* ── PRODUCTO CARD COMPRADOR (con imagen) ── */
+.product-img-wrap{height:140px;background:#daeef8;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.product-img-wrap img{width:100%;height:100%;object-fit:cover;}
+.product-img-emoji{font-size:64px;}
+.product-desc{font-size:12px;color:#667;margin-top:4px;line-height:1.4;}
+
+/* COMPRADOR */
+#s-comprador{background:#f0f7fc;}
+.comp-topbar{background:var(--ocean);padding:10px 14px 0;flex-shrink:0;}
+.comp-topbar-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.comp-title{font-family:var(--font-h);font-size:15px;font-weight:700;color:white;}
+.search-box{display:flex;align-items:center;gap:8px;background:white;border-radius:22px;padding:9px 14px;font-size:13px;color:#9baab8;margin-bottom:10px;}
+.filter-strip{display:flex;gap:8px;padding-bottom:10px;}
+.filter-pill{flex:1;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);color:white;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-b);}
+.products-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;scrollbar-width:none;}
+.products-scroll::-webkit-scrollbar{display:none;}
+.product-card{background:white;border-radius:16px;margin-bottom:12px;overflow:hidden;border:0.5px solid #cde5f4;cursor:pointer;transition:transform var(--trans);}
+.product-card:active{transform:scale(0.99);}
+.product-thumb{height:110px;background:#daeef8;display:flex;align-items:center;justify-content:center;font-size:60px;}
+.product-body{padding:12px 14px;}
+.product-name{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--navy);}
+.product-meta{font-size:12px;color:var(--gray);margin-top:2px;}
+.product-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;}
+.product-price{font-family:var(--font-h);font-size:19px;font-weight:800;color:var(--ocean);}
+.cert-badge{background:#e3f5f0;color:#0f6e56;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #9fe1cb;}
+.comp-actions{display:flex;gap:8px;padding:10px 12px;background:white;border-top:1px solid #ddeef7;flex-shrink:0;}
+.buy-btn{flex:2;padding:13px;background:var(--ocean);border:none;border-radius:13px;color:white;font-weight:700;cursor:pointer;font-family:var(--font-h);font-size:14px;}
+.buy-btn:active{opacity:0.85;}
+.cert-btn2{flex:1;padding:11px;background:#e8f4fd;border:1px solid #9bd0f0;border-radius:13px;color:var(--navy);font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.3;}
+
+/* MAPA */
+#s-mapa{background:var(--navy);}
+.map-frame{display:none;}
+.map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(76,201,240,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(76,201,240,0.07) 1px,transparent 1px);background-size:28px 28px;}
+.map-pin{position:absolute;font-size:22px;cursor:pointer;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));}
+.zarpe-badge{position:absolute;top:10px;right:10px;background:rgba(34,197,94,0.85);padding:5px 12px;border-radius:20px;font-size:11px;color:white;font-weight:700;}
+.map-coords{position:absolute;bottom:8px;left:10px;font-size:10px;color:rgba(76,201,240,0.7);font-weight:600;}
+.clima-section{padding:0 12px;margin-bottom:12px;}
+.clima-title{font-size:12px;color:var(--cyan);font-weight:700;margin-bottom:8px;letter-spacing:0.5px;}
+.clima-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.clima-tile{background:rgba(255,255,255,0.07);border-radius:14px;padding:14px 10px;text-align:center;}
+.clima-emoji{font-size:26px;margin-bottom:4px;}
+.clima-value{font-family:var(--font-h);font-size:20px;font-weight:800;color:white;}
+.clima-label{font-size:10px;color:var(--gray);margin-top:2px;}
+.sos-section{padding:0 12px;}
+.sos-big-btn{width:100%;padding:16px;background:var(--red);border:none;border-radius:16px;color:white;font-family:var(--font-h);font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 0 0 5px rgba(239,68,68,0.18);}
+.sos-big-btn:active{transform:scale(0.98);}
+.sos-note{font-size:11px;color:var(--gray);text-align:center;margin-top:7px;line-height:1.5;}
+
+/* QR */
+#s-qr{background:#f0f7fc;}
+.qr-hero{background:white;margin:12px;border-radius:var(--radius);padding:20px;text-align:center;border:0.5px solid #cde5f4;}
+.qr-box{width:150px;height:150px;margin:0 auto 12px;border-radius:12px;border:2px solid var(--navy);background:white;padding:6px;display:flex;align-items:center;justify-content:center;}
+.qr-title{font-family:var(--font-h);font-size:15px;font-weight:800;color:var(--navy);}
+.qr-sub{font-size:12px;color:var(--gray);margin-top:2px;}
+.trace-stack{padding:0 12px;display:flex;flex-direction:column;gap:8px;}
+.trace-row{display:flex;align-items:center;gap:12px;background:white;border-radius:14px;padding:13px 14px;border:0.5px solid #cde5f4;}
+.trace-row.ok{background:#f0fdf8;border-color:rgba(28,158,139,0.25);}
+.trace-icon{font-size:20px;width:26px;text-align:center;flex-shrink:0;}
+.trace-label{font-size:11px;color:var(--gray);}
+.trace-value{font-size:14px;font-weight:700;color:var(--navy);margin-top:1px;}
+.trace-value.green{color:var(--teal);}
+.cert-cta{margin:12px;background:linear-gradient(135deg,var(--teal),var(--ocean));border-radius:14px;padding:15px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border:none;width:calc(100% - 24px);transition:transform var(--trans);}
+.cert-cta:active{transform:scale(0.98);}
+.cert-cta-label{font-family:var(--font-h);font-size:14px;font-weight:700;color:white;}
+.cert-cta-sub{font-size:11px;color:rgba(255,255,255,0.75);margin-top:2px;}
+
+/* BOTTOM NAV */
+.bottom-nav{display:flex;background:#080f1a;border-top:1px solid rgba(76,201,240,0.08);padding:5px 0 env(safe-area-inset-bottom,10px);flex-shrink:0;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;color:var(--gray);font-size:10px;font-weight:500;border:none;cursor:pointer;padding:5px 0;font-family:var(--font-b);}
+.nav-btn.active{color:var(--cyan);}
+.nav-btn-icon{font-size:20px;line-height:1;}
+
+/* MODALES */
+.modal-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.75);z-index:999;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:white;border-radius:22px;padding:24px 20px;width:100%;max-width:330px;text-align:center;animation:slideUp 0.25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.modal-title{font-family:var(--font-h);font-size:18px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.modal-sub{font-size:13px;color:var(--gray);margin-bottom:16px;}
+.fn-input{width:100%;margin-bottom:10px;padding:13px 14px;border-radius:12px;border:1.5px solid #d0e4f0;font-size:15px;font-family:var(--font-b);color:var(--navy);outline:none;background:white;-webkit-appearance:none;}
+.fn-input:focus{border-color:var(--ocean);}
+.fn-select{width:100%;margin-bottom:10px;padding:13px 14px;border-radius:12px;border:1.5px solid #d0e4f0;font-size:15px;font-family:var(--font-b);color:var(--navy);background:white;-webkit-appearance:none;outline:none;}
+.fn-btn{width:100%;padding:14px;border-radius:30px;border:none;color:white;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-h);margin-top:4px;transition:transform var(--trans);}
+.fn-btn:active{transform:scale(0.97);}
+.fn-btn-primary{background:var(--ocean);}
+.fn-btn-teal{background:var(--teal);}
+.fn-btn-red{background:#b91c1c;}
+.fn-btn-gray{background:#9baab8;}
+.fn-link{font-size:13px;color:var(--ocean);cursor:pointer;margin-top:10px;display:block;font-weight:600;}
+
+/* TOAST */
+.toast{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(10,36,99,0.95);color:white;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;white-space:nowrap;z-index:1000;opacity:0;transition:opacity 0.3s;pointer-events:none;border:1px solid rgba(76,201,240,0.3);}
+.toast.show{opacity:1;}
+.toast.error{background:rgba(185,28,28,0.95);}
+
+/* INFO CARD */
+.info-card{margin:12px;background:rgba(255,255,255,0.05);border-radius:14px;padding:14px;border:0.5px solid rgba(76,201,240,0.15);}
+.info-card-title{font-size:12px;color:var(--cyan);font-weight:700;margin-bottom:8px;letter-spacing:0.4px;}
+.info-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid rgba(255,255,255,0.06);}
+.info-row:last-child{border:none;}
+.info-key{font-size:12px;color:var(--gray);}
+.info-val{font-size:12px;color:white;font-weight:600;}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="phone" id="phone">
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <span id="statusTime">--:--</span>
+  <div><span class="sync-dot"></span><span id="statusUser">No autenticado</span></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 0 — HOME
+══════════════════════════════════════ -->
+<div class="screen active" id="s-home">
+  <div class="home-body">
+    <div class="home-logo"><img src="data:image/jpeg;base64,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unITK26NSbIm3VWC2VGovMc7FtXpINPLtTHi0sIVdnsZ6hFwAAAAQAAAAAACQAAAAAMRpRFTGv1q81q6pMcpnqkxzO+/RNRJnInx7K2BIAAAAAAAAAAIBIAAAAAAAAAIBIAAAAIBIIBIAAAAAIBIIBIAIBIAAAAAIAABIAAAIAABIAAAAIAA/9oADAMBAAIAAwAAACH3333zzzzzzzzjDDDzzzzzz33z33z333zzzzzzzzgEEAEFHDzzzz333333333zzzzzCT9cGrIMgFHTzzzzz3z333zzzze2XJ3zwC2zfkAFHzzzzzz3z333ySaMDzzgEADTy9+0FXzzzzzzzzzxVawAHHAGwoADzz2AgHzzzzzzzzzwbyAAAFag0cAHzzzyUdzzzzzzzyhbgAAAABAcEEAFzzzz1LXzzzzzz1J+AAAAAADaZoABzzzzy0pTzzzzzuFwAAAAAAQqYgAAFTzzz3UzzzzzybWgAAAAAAHHyoAAAFHzz2gNTzz3yTzwgAAAAABNIAAAAQzzzziEDzzzwDzzygAACS3GUPElTzzfzy6IDzzzyTzzycsAD2P0NMsHzySvTzqFTzzz1mAAAQgAA9gGwTOrTTWtTyu9zzzzxssAAKqgAR7v/wDYgAbIDU8qV888887tAANxjARHDP7pAEb5p88M988888tiAAO7CAASJHAhAAAr988V8888988xtAHDLAAHgnEIAAc+284U88999889pJBX1sb90IkMLQQE85M889999889eUIRQEYxBwz4ig8c4jd8999998888JVDAAAAAAAAc88+Nf8APfffffPPPPPPEoQQAAAAAUesJXfPffffffffPPPPLOaqwhRRhBSz/PPPPPfffffffPPPPPPL/XjbnXfPPPONONPPPPfPPPPPPPPPPfPPPPPfPfPEKNPPfPfPPfPPPPPPfffPPPPfffIAAHPfff/aAAwDAQACAAMAAAAQBF99U88888884www88888ABBA1pABd9888888884BBABBRw88sABF9pBBRxB048As63/ANVDyACwUdPLDPPLQFQXSAADPLmo/fPAHrRNigUfPPPPPAQHYQWK2YAPPOAQANPEQSQVfPPPPAAAAGPxrAAccDJgQAPPPehAfPPPPAAAABNfIAAAVpyoAAfPPKErHPPPDAAAErOAAAAAFbSQQAXPPPAMNfPP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" alt="FishNet"></div>
+    <div class="home-brand">FishNet</div>
+    <div class="home-tagline">Del mar a la mesa — conectado, trazable y sostenible</div>
+    <div class="db-badge"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span><span id="dbStatus">Cargando base de datos...</span></div>
+    <div class="main-btns">
+      <button class="main-btn btn-pescador" onclick="requireLogin('s-pescador',1)">
+        <span class="btn-icon">🐟</span>
+        <div><div class="btn-label">Soy Pescador</div><div class="btn-sub">Publicar capturas y gestionar ventas</div></div>
+        <span class="btn-arrow">›</span>
+      </button>
+      <button class="main-btn btn-comprador" onclick="goTo('s-comprador',2)">
+        <span class="btn-icon">🛒</span>
+        <div><div class="btn-label">Soy Comprador</div><div class="btn-sub">Ver catálogo y comprar fresco</div></div>
+        <span class="btn-arrow">›</span>
+      </button>
+      <button class="main-btn btn-catalogo" onclick="requireLogin('s-mapa',3)">
+        <span class="btn-icon">🗺️</span>
+        <div><div class="btn-label">Mapa y Clima</div><div class="btn-sub">Condiciones y seguridad</div></div>
+        <span class="btn-arrow">›</span>
+      </button>
+      <button class="main-btn btn-auth" onclick="openLogin()" id="authBtn">
+        <span class="btn-icon">🔐</span>
+        <div><div class="btn-label" id="authBtnLabel">Iniciar sesión / Registrarse</div></div>
+      </button>
+    </div>
+  </div>
+  <div class="home-sos-area">
+    <button class="sos-ring" onclick="openModal('modal-sos')">SOS</button>
+    <div class="sos-hint">Emergencia — toca para activar alerta</div>
+    <div class="admin-link" id="adminLink" onclick="openAdminLogin()">🔧 Administrador</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1 — PANEL PESCADOR
+══════════════════════════════════════ -->
+<div class="screen" id="s-pescador">
+  <div class="app-header">
+    <button class="back-btn" onclick="goTo('s-home',0)">‹ Inicio</button>
+    <div class="app-header-title">Panel Pescador</div>
+    <div style="width:68px"></div>
+  </div>
+  <div class="scroll-body">
+    <div class="info-card">
+      <div class="info-card-title">SESIÓN ACTIVA</div>
+      <div class="info-row"><span class="info-key">Usuario</span><span class="info-val" id="pescNombre">—</span></div>
+      <div class="info-row"><span class="info-key">Puerto</span><span class="info-val" id="pescPuerto">—</span></div>
+      <div class="info-row"><span class="info-key">Capturas</span><span class="info-val" id="pescTotal">0 registradas</span></div>
+    </div>
+    <!-- FOTO -->
+    <div class="foto-zone" id="fotoZone" onclick="triggerFotoMenu()">
+      <div class="foto-placeholder" id="fotoPlaceholder">
+        <div class="foto-placeholder-icon">📸</div>
+        <div class="foto-placeholder-text">Agregar foto del producto</div>
+        <div class="foto-placeholder-sub">Toca para usar cámara o elegir de galería</div>
+      </div>
+      <img id="fotoPreview" class="foto-preview" alt="Foto del producto">
+    </div>
+    <!-- Inputs ocultos para cámara y galería -->
+    <input type="file" id="inputCamara" accept="image/*" capture="environment" style="display:none" onchange="handleFoto(event)">
+    <input type="file" id="inputGaleria" accept="image/*" style="display:none" onchange="handleFoto(event)">
+    <!-- Botones foto (visibles solo cuando hay imagen) -->
+    <div class="foto-btns" id="fotoBtns" style="display:none;">
+      <button class="foto-btn foto-btn-cam" onclick="document.getElementById('inputCamara').click()">📷 Cámara</button>
+      <button class="foto-btn foto-btn-gal" onclick="document.getElementById('inputGaleria').click()">🖼️ Galería</button>
+      <button class="foto-btn foto-btn-del" onclick="clearFoto()">🗑️</button>
+    </div>
+
+    <!-- ESPECIE -->
+    <div class="form-section" style="margin-bottom:8px;">
+      <span class="form-label">Especie</span>
+      <div class="species-row" style="padding:0;margin-bottom:0;">
+        <div class="species-chip active" onclick="pickSpecies(this,'Pargo')"><div class="sp-emoji">🐡</div><div class="sp-name">Pargo</div></div>
+        <div class="species-chip" onclick="pickSpecies(this,'Mero')"><div class="sp-emoji">🐟</div><div class="sp-name">Mero</div></div>
+        <div class="species-chip" onclick="pickSpecies(this,'Langostino')"><div class="sp-emoji">🦐</div><div class="sp-name">Langostino</div></div>
+        <div class="species-chip" onclick="pickSpecies(this,'Robalo')"><div class="sp-emoji">🐠</div><div class="sp-name">Robalo</div></div>
+      </div>
+    </div>
+
+    <!-- PESO + PRECIO -->
+    <div class="form-section">
+      <div class="form-row">
+        <div>
+          <label class="form-label">Peso disponible (kg)</label>
+          <input class="form-input" type="number" id="pesoInput" placeholder="Ej: 50" min="1" oninput="evalSem()" inputmode="decimal">
+        </div>
+        <div>
+          <label class="form-label">Precio ($ / kg)</label>
+          <input class="form-input" type="number" id="precioInput" placeholder="Ej: 12.50" min="0.1" step="0.5" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <!-- SEMÁFORO INSOPESCA -->
+    <div class="form-section" style="margin-top:-4px;">
+      <div class="sem-inline" id="semInline">
+        <div class="sem-dot-sm" id="semDot"></div>
+        <div class="sem-text" id="semVerdict">Ingresa el peso para verificar INSOPESCA</div>
+      </div>
+    </div>
+
+    <!-- DESCRIPCIÓN -->
+    <div class="form-section">
+      <label class="form-label">Descripción del producto</label>
+      <textarea class="form-textarea" id="descripcion" placeholder="Ej: Robalo fresco capturado esta mañana en Puerto Maya. Excelente calidad, listo para entregar..."></textarea>
+    </div>
+
+    <!-- DETALLES EXTRA -->
+    <div class="form-section">
+      <div class="form-row">
+        <div>
+          <label class="form-label">Tamaño promedio</label>
+          <input class="form-input" type="text" id="tamano" placeholder="Ej: Grande (2-3 kg)">
+        </div>
+        <div>
+          <label class="form-label">Estado</label>
+          <select class="form-input" id="estadoProducto" style="cursor:pointer;">
+            <option value="Fresco">🟢 Fresco (hoy)</option>
+            <option value="Refrigerado">🔵 Refrigerado</option>
+            <option value="Vivo">🟡 Vivo</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTACTO -->
+    <div class="form-section">
+      <label class="form-label">Teléfono de contacto (opcional)</label>
+      <input class="form-input" type="tel" id="telefonoVenta" placeholder="Ej: +58 412 0000000" inputmode="tel">
+    </div>
+
+    <button class="pub-btn" style="margin-top:4px;" onclick="publishCatch()">📤 Publicar Captura al Mercado</button>
+    <div class="menu-list" style="margin-bottom:12px;">
+      <button class="menu-item" onclick="showMyStats()">
+        <span class="menu-icon">💰</span><span class="menu-label">Mis Ventas</span>
+        <span class="menu-val" id="totalVentas">$0.00</span>
+      </button>
+      <button class="menu-item" onclick="loadMyCatches()">
+        <span class="menu-icon">🕐</span><span class="menu-label">Mis Capturas</span>
+        <span class="menu-val" id="catchCount">0</span>
+      </button>
+      <button class="menu-item" onclick="goTo('s-mapa',3)">
+        <span class="menu-icon">🗺️</span><span class="menu-label">Mapa y Clima</span>
+        <span style="font-size:11px;color:var(--green);font-weight:700;margin-left:auto;">Zarpe OK</span>
+      </button>
+      <button class="menu-item" onclick="openProfile()">
+        <span class="menu-icon">👤</span><span class="menu-label">Mi Perfil</span>
+        <span class="menu-val">›</span>
+      </button>
+    </div>
+    <div class="catches-list" id="catchesList"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2 — COMPRADOR
+══════════════════════════════════════ -->
+<div class="screen" id="s-comprador">
+  <div class="comp-topbar">
+    <div class="comp-topbar-row">
+      <button class="back-btn" onclick="goTo('s-home',0)">‹ Inicio</button>
+      <div class="comp-title">Mercado Fresco</div>
+      <div style="width:68px"></div>
+    </div>
+    <div class="search-box"><span>🔍</span> Buscar productos frescos...</div>
+    <div class="filter-strip">
+      <button class="filter-pill" onclick="toast('📍 Filtrando por proximidad GPS')">Proximidad (GPS)</button>
+      <button class="filter-pill" onclick="toast('🐟 Selecciona especie')">Tipo de Pescado</button>
+    </div>
+  </div>
+  <div class="products-scroll" id="productsContainer">
+    <div style="text-align:center;padding:30px;color:var(--gray);">Cargando productos...</div>
+  </div>
+  <div class="comp-actions">
+    <button class="buy-btn" onclick="buyProduct()">🛒 Comprar / Reservar</button>
+    <button class="cert-btn2" onclick="goTo('s-qr',4)">📄 Trazabilidad</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3 — MAPA
+══════════════════════════════════════ -->
+<div class="screen" id="s-mapa">
+  <div class="app-header" style="background:var(--ocean);">
+    <button class="back-btn" onclick="goTo('s-home',0)">‹ Inicio</button>
+    <div class="app-header-title">Mapa en Vivo</div>
+    <button class="back-btn" onclick="locateMe()" id="gpsBtn" style="font-size:12px;padding:5px 10px;">📍 GPS</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <!-- GOOGLE MAPS IFRAME — mapa real interactivo -->
+    <div style="position:relative;flex-shrink:0;">
+      <iframe
+        id="mapFrame"
+        src="https://maps.google.com/maps?q=10.55,-67.35&z=12&output=embed"
+        width="100%"
+        height="230"
+        style="border:0;display:block;"
+        allowfullscreen=""
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade">
+      </iframe>
+      <div id="zarpeMapBadge" style="position:absolute;top:8px;left:8px;background:rgba(34,197,94,0.92);padding:4px 10px;border-radius:14px;font-size:11px;color:white;font-weight:700;pointer-events:none;">✓ Zarpe Seguro</div>
+      <div id="coordsBadge" style="position:absolute;bottom:8px;right:8px;background:rgba(10,36,99,0.85);padding:3px 10px;border-radius:10px;font-size:10px;color:#4CC9F0;font-weight:600;pointer-events:none;">10.55°N  67.35°W</div>
+    </div>
+
+    <!-- GPS STATUS BAR -->
+    <div id="gpsStatus" style="background:rgba(6,90,130,0.9);padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <span style="font-size:14px;">📡</span>
+      <span id="gpsStatusText" style="font-size:12px;color:#4CC9F0;font-weight:600;flex:1;">Toca GPS para centrar el mapa en tu ubicación real</span>
+    </div>
+
+    <!-- SCROLL AREA: clima + SOS + botón maps -->
+    <div class="scroll-body" style="padding-bottom:10px;">
+      <!-- CLIMA -->
+      <div class="clima-section" style="margin-top:10px;">
+        <div class="clima-title">CONDICIONES ACTUALES</div>
+        <div class="clima-grid">
+          <div class="clima-tile"><div class="clima-emoji">🌬️</div><div class="clima-value" id="climaViento">22 nds</div><div class="clima-label">Viento</div></div>
+          <div class="clima-tile"><div class="clima-emoji">🌊</div><div class="clima-value" id="climaOlas">2.1 m</div><div class="clima-label">Olas</div></div>
+          <div class="clima-tile"><div class="clima-emoji">🌡️</div><div class="clima-value" id="climaTemp">28°C</div><div class="clima-label">Temperatura</div></div>
+          <div class="clima-tile"><div class="clima-emoji">⬆️</div><div class="clima-value" id="climaMarea">+0.8m</div><div class="clima-label">Marea (2h)</div></div>
+        </div>
+      </div>
+
+      <!-- SOS -->
+      <div class="sos-section" style="margin-top:10px;">
+        <button class="sos-big-btn" onclick="openModal('modal-sos')">
+          <span>🚨</span> Activar SOS — Emergencia
+        </button>
+        <div class="sos-note">SMS automático con GPS real + clima a rescatistas</div>
+      </div>
+
+      <!-- ABRIR EN GOOGLE MAPS APP -->
+      <div style="padding:10px 12px 0;">
+        <button onclick="openInGoogleMaps()" style="width:100%;padding:13px;background:rgba(255,255,255,0.08);border:1.5px solid rgba(76,201,240,0.3);border-radius:14px;color:white;font-size:14px;font-weight:600;font-family:var(--font-b);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+          <span style="font-size:20px;">🗺️</span> Abrir en Google Maps App
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 4 — TRAZABILIDAD QR
+══════════════════════════════════════ -->
+<div class="screen" id="s-qr">
+  <div class="app-header">
+    <button class="back-btn" onclick="goTo('s-home',0)">‹ Inicio</button>
+    <div class="app-header-title">Trazabilidad QR</div>
+    <div style="width:68px"></div>
+  </div>
+  <div class="scroll-body" style="background:#f0f7fc;">
+    <div class="qr-hero">
+      <div class="qr-box">
+        <svg width="136" height="136" viewBox="0 0 136 136"><rect width="136" height="136" fill="white"/><g fill="#0A2463"><rect x="4" y="4" width="44" height="44" rx="4" fill="none" stroke="#0A2463" stroke-width="4"/><rect x="12" y="12" width="28" height="28" rx="2"/><rect x="88" y="4" width="44" height="44" rx="4" fill="none" stroke="#0A2463" stroke-width="4"/><rect x="96" y="12" width="28" height="28" rx="2"/><rect x="4" y="88" width="44" height="44" rx="4" fill="none" stroke="#0A2463" stroke-width="4"/><rect x="12" y="96" width="28" height="28" rx="2"/><rect x="56" y="4" width="8" height="8"/><rect x="68" y="4" width="8" height="8"/><rect x="80" y="4" width="8" height="8"/><rect x="56" y="16" width="8" height="8"/><rect x="80" y="16" width="8" height="8"/><rect x="56" y="28" width="20" height="8"/><rect x="56" y="56" width="8" height="8"/><rect x="68" y="56" width="8" height="8"/><rect x="80" y="56" width="8" height="8"/><rect x="92" y="56" width="8" height="8"/><rect x="104" y="56" width="8" height="8"/><rect x="56" y="68" width="8" height="20"/><rect x="68" y="68" width="8" height="8"/><rect x="80" y="80" width="8" height="8"/><rect x="92" y="68" width="8" height="20"/><rect x="104" y="80" width="8" height="8"/><rect x="116" y="56" width="8" height="32"/><rect x="4" y="56" width="8" height="8"/><rect x="16" y="56" width="8" height="20"/><rect x="28" y="56" width="8" height="8"/><rect x="40" y="56" width="8" height="32"/><rect x="4" y="76" width="8" height="8"/><rect x="28" y="76" width="8" height="8"/><rect x="56" y="92" width="8" height="8"/><rect x="68" y="92" width="8" height="8"/><rect x="56" y="104" width="8" height="8"/><rect x="80" y="104" width="8" height="8"/><rect x="56" y="116" width="20" height="8"/><rect x="80" y="124" width="8" height="8"/><rect x="92" y="92" width="8" height="40"/><rect x="104" y="92" width="8" height="8"/><rect x="116" y="92" width="8" height="8"/><rect x="104" y="104" width="20" height="8"/><rect x="104" y="116" width="8" height="8"/><rect x="116" y="124" width="8" height="8"/></g></svg>
+      </div>
+      <div class="qr-title" id="qrTitle">Selecciona un producto</div>
+      <div class="qr-sub" id="qrSub">Ve al mercado y toca un producto</div>
+    </div>
+    <div class="trace-stack" id="traceStack">
+      <div class="trace-row"><div class="trace-icon">ℹ️</div><div><div class="trace-label">Estado</div><div class="trace-value">Esperando selección de producto...</div></div></div>
+    </div>
+    <button class="cert-cta" onclick="toast('🏅 Certificado Ético generado (demo)')">
+      <span style="font-size:28px">🏅</span>
+      <div><div class="cert-cta-label">Certificado Ético FishNet</div><div class="cert-cta-sub">Pesca responsable verificada</div></div>
+      <span style="color:rgba(255,255,255,0.7);margin-left:auto;font-size:18px">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     BOTTOM NAV
+══════════════════════════════════════ -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav0" onclick="goTo('s-home',0)"><span class="nav-btn-icon">🏠</span>Inicio</button>
+  <button class="nav-btn" id="nav1" onclick="requireLogin('s-pescador',1)"><span class="nav-btn-icon">🐟</span>Pesca</button>
+  <button class="nav-btn" id="nav2" onclick="goTo('s-comprador',2)"><span class="nav-btn-icon">🛒</span>Compras</button>
+  <button class="nav-btn" id="nav3" onclick="goTo('s-mapa',3)"><span class="nav-btn-icon">🗺️</span>Mapa</button>
+  <button class="nav-btn" id="nav4" onclick="requireLogin('s-qr',4)"><span class="nav-btn-icon">📋</span>QR</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODALES
+══════════════════════════════════════ -->
+
+<!-- LOGIN -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal-box">
+    <div style="font-size:36px;margin-bottom:6px">🌊</div>
+    <div class="modal-title">Acceso a FishNet</div>
+    <div class="modal-sub">Ingresa tu correo y contraseña</div>
+    <input class="fn-input" type="email" id="loginEmail" placeholder="Correo electrónico" autocomplete="email">
+    <input class="fn-input" type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password">
+    <button class="fn-btn fn-btn-primary" onclick="doLogin()">Iniciar sesión</button>
+    <button class="fn-btn fn-btn-teal" style="margin-top:8px" onclick="switchToRegister()">Crear cuenta nueva</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:8px" onclick="closeModal('modal-login')">Cancelar</button>
+  </div>
+</div>
+
+<!-- REGISTRO -->
+<div class="modal-overlay" id="modal-register">
+  <div class="modal-box">
+    <div style="font-size:36px;margin-bottom:6px">📝</div>
+    <div class="modal-title">Crear Cuenta</div>
+    <div class="modal-sub">Completa todos los campos</div>
+    <input class="fn-input" type="text" id="regNombre" placeholder="Nombre completo" autocomplete="name">
+    <input class="fn-input" type="email" id="regEmail" placeholder="Correo electrónico" autocomplete="email">
+    <input class="fn-input" type="password" id="regPassword" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password">
+    <select class="fn-select" id="regRol">
+      <option value="pescador">🐟 Soy Pescador</option>
+      <option value="comprador">🛒 Soy Comprador</option>
+    </select>
+    <input class="fn-input" type="text" id="regPuerto" placeholder="Puerto base (ej: Puerto Maya)">
+    <button class="fn-btn fn-btn-teal" onclick="doRegister()">✅ Crear mi cuenta</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:8px" onclick="switchToLogin()">Ya tengo cuenta</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:4px" onclick="closeModal('modal-register')">Cancelar</button>
+  </div>
+</div>
+
+<!-- PERFIL -->
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal-box">
+    <div style="font-size:36px;margin-bottom:6px">👤</div>
+    <div class="modal-title" id="profileName">Mi Perfil</div>
+    <div class="modal-sub" id="profileEmail">—</div>
+    <input class="fn-input" type="text" id="profileNombre" placeholder="Nombre completo">
+    <input class="fn-input" type="text" id="profileTelefono" placeholder="Teléfono">
+    <input class="fn-input" type="text" id="profilePuerto" placeholder="Puerto base">
+    <select class="fn-select" id="profileRol">
+      <option value="pescador">🐟 Pescador</option>
+      <option value="comprador">🛒 Comprador</option>
+    </select>
+    <button class="fn-btn fn-btn-primary" onclick="doUpdateProfile()">Guardar cambios</button>
+    <button class="fn-btn fn-btn-red" style="margin-top:8px" onclick="doLogout()">Cerrar sesión</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:4px" onclick="closeModal('modal-profile')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div class="modal-overlay" id="modal-admin-login">
+  <div class="modal-box">
+    <div style="font-size:36px;margin-bottom:6px">🔧</div>
+    <div class="modal-title">Acceso Administrador</div>
+    <div class="modal-sub">Solo personal autorizado</div>
+    <input class="fn-input" type="text" id="adminUser" placeholder="Usuario" value="admin">
+    <input class="fn-input" type="password" id="adminPass" placeholder="Contraseña">
+    <button class="fn-btn fn-btn-primary" onclick="doAdminLogin()">Acceder</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:8px" onclick="closeModal('modal-admin-login')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="modal-overlay" id="modal-admin">
+  <div class="modal-box">
+    <div style="font-size:36px;margin-bottom:6px">👑</div>
+    <div class="modal-title">Panel Administrador</div>
+    <div class="modal-sub" id="adminStats">Cargando estadísticas...</div>
+    <button class="fn-btn fn-btn-primary" onclick="adminExport()">📥 Exportar base de datos (JSON)</button>
+    <button class="fn-btn fn-btn-teal" style="margin-top:8px" onclick="adminViewUsers()">👥 Ver todos los usuarios</button>
+    <button class="fn-btn fn-btn-red" style="margin-top:8px" onclick="adminClearCatches()">🗑️ Limpiar capturas</button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:8px" onclick="closeModal('modal-admin')">Cerrar</button>
+  </div>
+</div>
+
+<!-- SOS -->
+<div class="modal-overlay" id="modal-sos">
+  <div class="modal-box">
+    <div style="font-size:48px;margin-bottom:8px">🚨</div>
+    <div class="modal-title" style="color:#b91c1c">Alerta de Emergencia</div>
+    <div class="modal-sub">Se enviará SMS con tu GPS y condiciones climáticas</div>
+    <div style="background:#fff5f5;border:1px solid #fca5a5;border-radius:12px;padding:12px;margin:12px 0;font-size:12px;color:#555;line-height:1.7;text-align:left;">
+      📍 <strong>Posición:</strong> 10°32'18"N 67°21'45"W<br>
+      🌬️ <strong>Viento:</strong> 22 nudos<br>
+      🌊 <strong>Olas:</strong> 2.1 m
+    </div>
+    <button class="fn-btn fn-btn-gray" onclick="closeModal('modal-sos')">Cancelar</button>
+    <button class="fn-btn fn-btn-red" style="margin-top:8px" onclick="confirmSOS()">🚨 Confirmar SOS</button>
+  </div>
+</div>
+
+
+<!-- MODAL FOTO CHOICE -->
+<div class="modal-overlay" id="modal-foto-choice">
+  <div class="modal-box">
+    <div style="font-size:40px;margin-bottom:8px">📸</div>
+    <div class="modal-title">Agregar Foto</div>
+    <div class="modal-sub">¿Cómo quieres agregar la foto?</div>
+    <button class="fn-btn fn-btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;" onclick="document.getElementById('inputCamara').click()">
+      📷 Tomar foto con la cámara
+    </button>
+    <button class="fn-btn fn-btn-teal" style="margin-top:10px;display:flex;align-items:center;justify-content:center;gap:10px;" onclick="document.getElementById('inputGaleria').click()">
+      🖼️ Elegir de la galería
+    </button>
+    <button class="fn-btn fn-btn-gray" style="margin-top:8px;" onclick="closeModal('modal-foto-choice')">Cancelar</button>
+  </div>
+</div>
+</div><!-- /phone -->
+</div><!-- /shell -->
+
+<script>
+// ════════════════════════════════════════════════════════
+//  FISHNET — SQLite (sql.js) + Lógica completa
+//  Base de datos embebida 100% en el navegador
+// ════════════════════════════════════════════════════════
+
+let SQL = null;
+let db  = null;
+let currentUser = null;
+let selectedSpecies = 'Pargo';
+let selectedProduct = null;
+let pendingScreen = null;
+let pendingIdx = 0;
+const DB_KEY = 'fishnet_sqlite_v2';
+
+// ── INICIALIZAR SQL.JS ──────────────────────────────────
+async function initDB() {
+  try {
+    SQL = await initSqlJs({
+      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+    });
+
+    // Intentar cargar base de datos guardada
+    const saved = localStorage.getItem(DB_KEY);
+    if (saved) {
+      const buf = Uint8Array.from(atob(saved), c => c.charCodeAt(0));
+      db = new SQL.Database(buf);
+    } else {
+      db = new SQL.Database();
+    }
+
+    createSchema();
+    insertAdminIfNeeded();
+    // Limpiar duplicados si los hubiera
+    try { db.run('DELETE FROM capturas WHERE id NOT IN (SELECT MIN(id) FROM capturas GROUP BY catch_id)'); } catch(e){}
+    try { db.run('DELETE FROM usuarios WHERE id NOT IN (SELECT MIN(id) FROM usuarios GROUP BY email)'); } catch(e){}
+    restoreSession();
+
+    document.getElementById('dbStatus').textContent = 'SQLite activo · Datos locales';
+    updateTime();
+    setInterval(updateTime, 1000);
+    setInterval(saveDB, 30000); // Auto-guardar cada 30s
+  } catch(e) {
+    document.getElementById('dbStatus').textContent = 'Error BD: ' + e.message;
+    console.error(e);
+  }
+}
+
+// ── ESQUEMA DE TABLAS ───────────────────────────────────
+function createSchema() {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre    TEXT NOT NULL,
+      email     TEXT UNIQUE NOT NULL,
+      password  TEXT NOT NULL,
+      rol       TEXT NOT NULL CHECK(rol IN ('pescador','comprador','admin')),
+      puerto    TEXT DEFAULT '',
+      telefono  TEXT DEFAULT '',
+      puntos    INTEGER DEFAULT 0,
+      creditos  REAL DEFAULT 0,
+      creado_en TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS capturas (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      catch_id       TEXT UNIQUE NOT NULL,
+      pescador_id    INTEGER NOT NULL REFERENCES usuarios(id),
+      pescador_nombre TEXT NOT NULL,
+      especie        TEXT NOT NULL,
+      peso_kg        REAL NOT NULL CHECK(peso_kg > 0),
+      precio_kg      REAL NOT NULL CHECK(precio_kg > 0),
+      puerto         TEXT NOT NULL,
+      disponible     INTEGER DEFAULT 1,
+      insopesca_ok   INTEGER DEFAULT 1,
+      fecha_captura  TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(pescador_id) REFERENCES usuarios(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS ordenes (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      catch_id        TEXT NOT NULL,
+      comprador_id    INTEGER NOT NULL REFERENCES usuarios(id),
+      comprador_nombre TEXT NOT NULL,
+      especie         TEXT NOT NULL,
+      cantidad_kg     REAL NOT NULL,
+      total_usd       REAL NOT NULL,
+      estado          TEXT DEFAULT 'pendiente' CHECK(estado IN ('pendiente','confirmado','entregado','cancelado')),
+      fecha_orden     TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(comprador_id) REFERENCES usuarios(id)
+    );
+  `);
+  saveDB();
+}
+
+// ── GUARDAR BD en localStorage ─────────────────────────
+function saveDB() {
+  if (!db) return;
+  const data = db.export();
+  const b64  = btoa(String.fromCharCode(...data));
+  localStorage.setItem(DB_KEY, b64);
+}
+
+// ── INSERTAR ADMIN POR DEFECTO ─────────────────────────
+function insertAdminIfNeeded() {
+  const res = db.exec("SELECT COUNT(*) as c FROM usuarios WHERE email='admin'");
+  if (res[0].values[0][0] === 0) {
+    db.run(
+      "INSERT INTO usuarios(nombre,email,password,rol,puerto) VALUES(?,?,?,?,?)",
+      ['Administrador','admin','123456','admin','Sistema']
+    );
+    saveDB();
+  }
+}
+
+// ── RESTAURAR SESIÓN ───────────────────────────────────
+function restoreSession() {
+  const s = localStorage.getItem('fishnet_session');
+  if (!s) return;
+  try {
+    const u = JSON.parse(s);
+    const res = db.exec("SELECT * FROM usuarios WHERE id=? AND email=?", [u.id, u.email]);
+    if (res.length && res[0].values.length) {
+      setCurrentUser(rowToObj(res[0].columns, res[0].values[0]));
+    }
+  } catch(e) { localStorage.removeItem('fishnet_session'); }
+}
+
+function rowToObj(cols, vals) {
+  const obj = {};
+  cols.forEach((c, i) => obj[c] = vals[i]);
+  return obj;
+}
+
+// ── SETEAR USUARIO ACTIVO ──────────────────────────────
+function setCurrentUser(u) {
+  currentUser = u;
+  const label = u ? `👤 ${u.nombre}` : 'No autenticado';
+  document.getElementById('statusUser').textContent = label;
+  if (u) {
+    document.getElementById('authBtnLabel').textContent = `👤 ${u.nombre} · Salir`;
+    document.getElementById('authBtn').onclick = doLogout;
+    localStorage.setItem('fishnet_session', JSON.stringify({id: u.id, email: u.email}));
+    // Actualizar info pescador
+    document.getElementById('pescNombre').textContent  = u.nombre;
+    document.getElementById('pescPuerto').textContent  = u.puerto || 'No especificado';
+  } else {
+    document.getElementById('authBtnLabel').textContent = 'Iniciar sesión / Registrarse';
+    document.getElementById('authBtn').onclick = openLogin;
+    localStorage.removeItem('fishnet_session');
+  }
+}
+
+// ════════════════════════════════════
+//  AUTENTICACIÓN
+// ════════════════════════════════════
+
+function openLogin() { openModal('modal-login'); }
+function switchToRegister() { closeModal('modal-login'); openModal('modal-register'); }
+function switchToLogin()    { closeModal('modal-register'); openModal('modal-login'); }
+
+function doLogin() {
+  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
+  const pwd   = (document.getElementById('loginPassword').value || '');
+  if (!email || !pwd) { toast('Completa correo y contraseña', true); return; }
+  try {
+    const res = db.exec("SELECT * FROM usuarios WHERE email=? AND password=?", [email, pwd]);
+    if (!res.length || !res[0].values.length) { toast('Correo o contraseña incorrectos', true); return; }
+    const user = rowToObj(res[0].columns, res[0].values[0]);
+    setCurrentUser(user);
+    closeModal('modal-login');
+    toast(`Bienvenido, ${user.nombre} 👋`);
+    if (pendingScreen) { goTo(pendingScreen, pendingIdx); pendingScreen = null; }
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+function doRegister() {
+  const nombre  = (document.getElementById('regNombre').value || '').trim();
+  const email   = (document.getElementById('regEmail').value || '').trim().toLowerCase();
+  const pwd     = (document.getElementById('regPassword').value || '');
+  const rol     = document.getElementById('regRol').value;
+  const puerto  = (document.getElementById('regPuerto').value || '').trim();
+
+  if (!nombre)       { toast('Ingresa tu nombre completo', true); return; }
+  if (!email || !email.includes('@')) { toast('Ingresa un correo válido', true); return; }
+  if (pwd.length < 6){ toast('La contraseña debe tener al menos 6 caracteres', true); return; }
+  if (!puerto)       { toast('Ingresa tu puerto base', true); return; }
+
+  try {
+    // Verificar si el email ya existe
+    const exists = db.exec("SELECT id FROM usuarios WHERE email=?", [email]);
+    if (exists.length && exists[0].values.length) { toast('Ese correo ya está registrado', true); return; }
+
+    db.run(
+      "INSERT INTO usuarios(nombre,email,password,rol,puerto) VALUES(?,?,?,?,?)",
+      [nombre, email, pwd, rol, puerto]
+    );
+    saveDB();
+
+    // Recuperar el usuario recién creado
+    const res = db.exec("SELECT * FROM usuarios WHERE email=?", [email]);
+    const user = rowToObj(res[0].columns, res[0].values[0]);
+    setCurrentUser(user);
+    closeModal('modal-register');
+    toast(`Cuenta creada. Bienvenido, ${nombre} 🎉`);
+    // Limpiar campos
+    ['regNombre','regEmail','regPassword','regPuerto'].forEach(id => document.getElementById(id).value = '');
+    if (pendingScreen) { goTo(pendingScreen, pendingIdx); pendingScreen = null; }
+  } catch(e) { toast('Error al registrar: ' + e.message, true); }
+}
+
+function doLogout() {
+  setCurrentUser(null);
+  closeModal('modal-profile');
+  goTo('s-home', 0);
+  toast('Sesión cerrada');
+}
+
+// ════════════════════════════════════
+//  PERFIL
+// ════════════════════════════════════
+
+function openProfile() {
+  if (!currentUser) { openLogin(); return; }
+  document.getElementById('profileName').textContent  = currentUser.nombre;
+  document.getElementById('profileEmail').textContent = currentUser.email;
+  document.getElementById('profileNombre').value   = currentUser.nombre;
+  document.getElementById('profileTelefono').value = currentUser.telefono || '';
+  document.getElementById('profilePuerto').value   = currentUser.puerto   || '';
+  document.getElementById('profileRol').value      = currentUser.rol;
+  openModal('modal-profile');
+}
+
+function doUpdateProfile() {
+  const nombre   = (document.getElementById('profileNombre').value || '').trim();
+  const telefono = (document.getElementById('profileTelefono').value || '').trim();
+  const puerto   = (document.getElementById('profilePuerto').value || '').trim();
+  const rol      = document.getElementById('profileRol').value;
+  if (!nombre) { toast('El nombre no puede estar vacío', true); return; }
+  try {
+    db.run("UPDATE usuarios SET nombre=?,telefono=?,puerto=?,rol=? WHERE id=?",
+      [nombre, telefono, puerto, rol, currentUser.id]);
+    saveDB();
+    currentUser.nombre   = nombre;
+    currentUser.telefono = telefono;
+    currentUser.puerto   = puerto;
+    currentUser.rol      = rol;
+    setCurrentUser(currentUser);
+    closeModal('modal-profile');
+    toast('Perfil actualizado ✅');
+  } catch(e) { toast('Error: ' + e.message, true); }
+}
+
+// ════════════════════════════════════
+//  CAPTURAS (PESCADOR)
+// ════════════════════════════════════
+
+function pickSpecies(el, name) {
+  document.querySelectorAll('.species-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  selectedSpecies = name;
+}
+
+function focusPeso() { document.getElementById('pesoInput').focus(); }
+
+// ── FOTO HANDLING ──────────────────────────────────────
+let capturedPhotoB64 = null;
+
+function triggerFotoMenu() {
+  if (capturedPhotoB64) return; // ya tiene foto, ignorar click en zona
+  // En móvil mostramos ambas opciones; disparamos galería por defecto
+  // y el usuario puede elegir cámara desde los botones
+  const ua = navigator.userAgent.toLowerCase();
+  if (/android|iphone|ipad/.test(ua)) {
+    // Mostrar mini-menu: cámara o galería
+    openFotoChoice();
+  } else {
+    document.getElementById('inputGaleria').click();
+  }
+}
+
+function openFotoChoice() {
+  // Usamos un pequeño modal inline
+  openModal('modal-foto-choice');
+}
+
+function handleFoto(evt) {
+  const file = evt.target.files[0];
+  evt.target.value = ''; // reset para poder volver a elegir la misma foto
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Elige un archivo de imagen', true); return; }
+  if (file.size > 8 * 1024 * 1024) { toast('La imagen no debe superar 8MB', true); return; }
+  // Comprimir imagen antes de guardar (max 800px, JPEG 75%)
+  const img = new Image();
+  const objUrl = URL.createObjectURL(file);
+  img.onload = () => {
+    const MAX = 800;
+    let w = img.width, h = img.height;
+    if (w > MAX || h > MAX) {
+      if (w > h) { h = Math.round(h * MAX/w); w = MAX; }
+      else       { w = Math.round(w * MAX/h); h = MAX; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    capturedPhotoB64 = canvas.toDataURL('image/jpeg', 0.75);
+    document.getElementById('fotoPreview').src = capturedPhotoB64;
+    document.getElementById('fotoPreview').style.display = 'block';
+    document.getElementById('fotoPlaceholder').style.display = 'none';
+    document.getElementById('fotoBtns').style.display = 'flex';
+    URL.revokeObjectURL(objUrl);
+    toast('📸 Foto lista (' + w + 'x' + h + ')');
+  };
+  img.src = objUrl;
+  closeModal('modal-foto-choice');
+}
+
+function clearFoto() {
+  capturedPhotoB64 = null;
+  document.getElementById('fotoPreview').style.display = 'none';
+  document.getElementById('fotoPreview').src = '';
+  document.getElementById('fotoPlaceholder').style.display = 'flex';
+  document.getElementById('fotoBtns').style.display = 'none';
+}
+
+function evalSem() {
+  const v = parseFloat(document.getElementById('pesoInput').value) || 0;
+  const ok = v > 0 && v <= 500;
+  const dot  = document.getElementById('semDot');
+  const verd = document.getElementById('semVerdict');
+  const box  = document.getElementById('semInline');
+  dot.className  = 'sem-dot-sm' + (ok ? '' : ' rojo');
+  verd.className = 'sem-text'   + (ok ? '' : ' rojo');
+  box.className  = 'sem-inline' + (ok ? '' : ' rojo');
+  if (v === 0)      verd.textContent = 'Ingresa el peso para verificar INSOPESCA';
+  else if (ok)      verd.textContent = '✓ INSOPESCA: PERMITIDO — Fuera de período de veda';
+  else              verd.textContent = '⚠ INSOPESCA: Revisar — Peso supera límite recomendado';
+}
+
+function publishCatch() {
+  if (!currentUser) { toast('Debes iniciar sesión primero', true); openLogin(); return; }
+  const peso        = parseFloat(document.getElementById('pesoInput').value);
+  const precio      = parseFloat(document.getElementById('precioInput').value);
+  const descripcion = (document.getElementById('descripcion').value || '').trim();
+  const tamano      = (document.getElementById('tamano').value || '').trim();
+  const estado      = document.getElementById('estadoProducto').value;
+  const telefono    = (document.getElementById('telefonoVenta').value || '').trim();
+
+  if (!peso   || peso   <= 0) { toast('Ingresa el peso disponible en kg', true); return; }
+  if (!precio || precio <= 0) { toast('Ingresa el precio por kg', true); return; }
+  if (!descripcion)           { toast('Agrega una descripción del producto', true); return; }
+
+  const catchId = 'FN' + Date.now().toString(36).toUpperCase();
+  const foto    = capturedPhotoB64 || null;
+
+  try {
+    // Asegurarse que la tabla tiene las columnas nuevas
+    try { db.run("ALTER TABLE capturas ADD COLUMN descripcion TEXT DEFAULT ''"); } catch(e){}
+    try { db.run("ALTER TABLE capturas ADD COLUMN tamano TEXT DEFAULT ''"); } catch(e){}
+    try { db.run("ALTER TABLE capturas ADD COLUMN estado_prod TEXT DEFAULT 'Fresco'"); } catch(e){}
+    try { db.run("ALTER TABLE capturas ADD COLUMN telefono_contacto TEXT DEFAULT ''"); } catch(e){}
+    try { db.run("ALTER TABLE capturas ADD COLUMN foto_b64 TEXT DEFAULT NULL"); } catch(e){}
+
+    db.run(
+      `INSERT INTO capturas(catch_id,pescador_id,pescador_nombre,especie,peso_kg,precio_kg,
+        puerto,insopesca_ok,descripcion,tamano,estado_prod,telefono_contacto,foto_b64)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [catchId, currentUser.id, currentUser.nombre, selectedSpecies, peso, precio,
+       currentUser.puerto || 'Puerto Maya', peso <= 500 ? 1 : 0,
+       descripcion, tamano, estado, telefono || currentUser.telefono || '', foto]
+    );
+    saveDB();
+    // Limpiar formulario
+    document.getElementById('pesoInput').value    = '';
+    document.getElementById('precioInput').value  = '';
+    document.getElementById('descripcion').value  = '';
+    document.getElementById('tamano').value       = '';
+    document.getElementById('telefonoVenta').value= '';
+    clearFoto();
+    evalSem();
+    loadMyCatches();
+    loadMarketplace();
+    toast('✅ ¡Publicado! Ve a Compras para verlo 👆', false);
+  } catch(e) { toast('Error al publicar: ' + e.message, true); }
+}
+
+function loadMyCatches() {
+  if (!currentUser) return;
+  const res = db.exec(
+    "SELECT * FROM capturas WHERE pescador_id=? ORDER BY id DESC LIMIT 10",
+    [currentUser.id]
+  );
+  const list = document.getElementById('catchesList');
+  if (!res.length || !res[0].values.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--gray);padding:16px;font-size:13px;">Aún no has publicado capturas</div>';
+    document.getElementById('catchCount').textContent = '0';
+    document.getElementById('pescTotal').textContent  = '0 registradas';
+    document.getElementById('totalVentas').textContent = '$0.00';
+    return;
+  }
+  const cols = res[0].columns;
+  const rows = res[0].values.map(v => rowToObj(cols, v));
+  let totalVal = 0;
+  list.innerHTML = rows.map(r => {
+    totalVal += r.peso_kg * r.precio_kg;
+    const disp = r.disponible ? '<span style="color:var(--green);font-size:10px">● Disponible</span>' : '<span style="color:var(--gray);font-size:10px">● Vendido</span>';
+    return `<div class="catch-item">
+      <div class="catch-item-left">
+        <div class="catch-item-especie">${r.especie} ${disp}</div>
+        <div class="catch-item-detail">${r.peso_kg}kg · ${r.puerto}</div>
+        <div class="catch-item-detail" style="color:rgba(255,255,255,0.35);font-size:10px">${r.fecha_captura ? r.fecha_captura.slice(0,16) : ''}</div>
+      </div>
+      <div class="catch-item-price">$${(r.peso_kg * r.precio_kg).toFixed(2)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('catchCount').textContent  = rows.length + ' capturas';
+  document.getElementById('pescTotal').textContent   = rows.length + ' registradas';
+  document.getElementById('totalVentas').textContent = '$' + totalVal.toFixed(2);
+}
+
+function showMyStats() {
+  if (!currentUser) return;
+  const res = db.exec("SELECT COUNT(*) as cnt, SUM(peso_kg * precio_kg) as total FROM capturas WHERE pescador_id=?", [currentUser.id]);
+  const cnt   = res[0].values[0][0] || 0;
+  const total = res[0].values[0][1] || 0;
+  toast(`💰 ${cnt} capturas · Total: $${total.toFixed(2)}`);
+}
+
+// ════════════════════════════════════
+//  MARKETPLACE (COMPRADOR)
+// ════════════════════════════════════
+
+const SPECIES_EMOJI = {Pargo:'🐡',Mero:'🐟',Langostino:'🦐',Robalo:'🐠'};
+
+// Guarda productos en memoria para acceso seguro desde onclick
+let marketProducts = [];
+
+function loadMarketplace() {
+  if (!db) return;
+  const container = document.getElementById('productsContainer');
+  container.innerHTML = '<div style="text-align:center;color:var(--gray);padding:20px;font-size:13px;">Cargando...</div>';
+
+  // Migración segura: añadir columnas nuevas si no existen
+  ['descripcion TEXT DEFAULT ""','tamano TEXT DEFAULT ""',
+   'estado_prod TEXT DEFAULT "Fresco"','telefono_contacto TEXT DEFAULT ""',
+   'foto_b64 TEXT DEFAULT NULL'].forEach(col => {
+    try { db.run('ALTER TABLE capturas ADD COLUMN ' + col); } catch(e){}
+  });
+
+  let res;
+  try {
+    res = db.exec(
+      'SELECT c.id, c.catch_id, c.pescador_id, c.pescador_nombre, c.especie, ' +
+      'c.peso_kg, c.precio_kg, c.puerto, c.disponible, c.insopesca_ok, ' +
+      'c.fecha_captura, c.descripcion, c.tamano, c.estado_prod, ' +
+      'c.telefono_contacto, c.foto_b64 ' +
+      'FROM capturas c WHERE c.disponible=1 GROUP BY c.catch_id ORDER BY c.id DESC'
+    );
+  } catch(err) {
+    container.innerHTML = '<div style="text-align:center;color:var(--red);padding:20px;font-size:13px;">Error: ' + err.message + '</div>';
+    return;
+  }
+
+  if (!res.length || !res[0].values.length) {
+    marketProducts = [];
+    container.innerHTML =
+      '<div style="text-align:center;padding:40px 20px;">' +
+      '<div style="font-size:48px;margin-bottom:12px;">🐟</div>' +
+      '<div style="color:#667;font-size:14px;font-weight:600;">No hay productos disponibles</div>' +
+      '<div style="color:#9baab8;font-size:12px;margin-top:6px;">Los pescadores aún no han publicado capturas</div>' +
+      '</div>';
+    return;
+  }
+
+  const cols = res[0].columns;
+  // Deduplicar por catch_id (por si acaso hay filas repetidas en BD)
+  var seen = {};
+  marketProducts = res[0].values.map(v => rowToObj(cols, v)).filter(function(r) {
+    if (seen[r.catch_id]) return false;
+    seen[r.catch_id] = true; return true;
+  });
+
+  container.innerHTML = marketProducts.map(function(r, idx) {
+    var fotoHTML = r.foto_b64
+      ? '<div class="product-img-wrap"><img src="' + r.foto_b64 + '" alt="' + r.especie + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></div>'
+      : '<div class="product-img-wrap"><div class="product-img-emoji">' + (SPECIES_EMOJI[r.especie] || '🐟') + '</div></div>';
+    var desc   = r.descripcion
+      ? '<div class="product-desc">' + (r.descripcion.length > 90 ? r.descripcion.slice(0,90)+'…' : r.descripcion) + '</div>'
+      : '';
+    var estado = r.estado_prod
+      ? '<span style="background:#e0f7f4;color:var(--teal);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;">' + r.estado_prod + '</span>'
+      : '';
+    var tel = r.telefono_contacto
+      ? '<div style="font-size:11px;color:var(--gray);margin-top:3px;">📞 ' + r.telefono_contacto + '</div>'
+      : '';
+    var total = (r.peso_kg * r.precio_kg).toFixed(2);
+    return '<div class="product-card" onclick="selectProductByIdx(' + idx + ')">' +
+      fotoHTML +
+      '<div class="product-body">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div class="product-name">' + r.especie + estado + '</div>' +
+          '<div class="cert-badge">' + (r.insopesca_ok ? '✓ INSOP.' : '⚠ Rev.') + '</div>' +
+        '</div>' +
+        '<div class="product-meta">📍 ' + r.puerto + ' · 👤 ' + r.pescador_nombre + '</div>' +
+        desc + tel +
+        '<div class="product-footer">' +
+          '<div class="product-price">$' + r.precio_kg + ' <span style="font-size:12px;font-weight:400;color:var(--gray)">/kg · ' + r.peso_kg + 'kg</span></div>' +
+          '<div style="font-size:13px;font-weight:800;color:var(--ocean)">Total: $' + total + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function selectProductByIdx(idx) {
+  var r = marketProducts[idx];
+  if (!r) return;
+  selectProduct(r.catch_id, r.especie, r.peso_kg, r.precio_kg,
+    r.pescador_nombre, r.puerto, r.descripcion||'', r.estado_prod||'', r.foto_b64||'');
+}
+
+
+function selectProduct(catchId, especie, pesoKg, precioKg, pescador, puerto, descripcion='', estadoProd='', fotoB64='') {
+  selectedProduct = { catchId, especie, pesoKg, precioKg, pescador, puerto };
+  // Cargar trazabilidad
+  document.getElementById('qrTitle').textContent = `${especie} — Lote #${catchId.slice(-6)}`;
+  document.getElementById('qrSub').textContent   = 'Toca "Trazabilidad" para ver detalles';
+  const fotoTrace = fotoB64 ? `<div style="margin-bottom:8px;border-radius:14px;overflow:hidden;border:0.5px solid #cde5f4;"><img src="${fotoB64}" style="width:100%;max-height:180px;object-fit:cover;" alt="${especie}"></div>` : '';
+  const descTrace = descripcion ? `<div class="trace-row"><div class="trace-icon">📝</div><div><div class="trace-label">Descripción</div><div class="trace-value" style="font-size:13px;font-weight:500;">${descripcion}</div></div></div>` : '';
+  const estTrace  = estadoProd  ? `<div class="trace-row"><div class="trace-icon">🏷️</div><div><div class="trace-label">Estado del producto</div><div class="trace-value">${estadoProd}</div></div></div>` : '';
+  document.getElementById('traceStack').innerHTML = fotoTrace + `
+    <div class="trace-row"><div class="trace-icon">👨‍🦱</div><div><div class="trace-label">Pescador</div><div class="trace-value">${pescador}</div></div></div>
+    <div class="trace-row"><div class="trace-icon">📍</div><div><div class="trace-label">Puerto de Origen</div><div class="trace-value">${puerto}</div></div></div>
+    <div class="trace-row"><div class="trace-icon">⚖️</div><div><div class="trace-label">Peso / Precio</div><div class="trace-value">${pesoKg} kg · $${precioKg}/kg</div></div></div>
+    <div class="trace-row"><div class="trace-icon">💰</div><div><div class="trace-label">Total estimado</div><div class="trace-value">$${(pesoKg * precioKg).toFixed(2)}</div></div></div>
+    ${descTrace}${estTrace}
+    <div class="trace-row ok"><div class="trace-icon">🟢</div><div><div class="trace-label">INSOPESCA</div><div class="trace-value green">PERMITIDO — Fuera de veda</div></div></div>
+    <div class="trace-row ok"><div class="trace-icon">🗓️</div><div><div class="trace-label">Fecha de registro</div><div class="trace-value">${new Date().toLocaleDateString('es-VE')}</div></div></div>`;
+  toast(`Producto seleccionado: ${especie}`);
+}
+
+function buyProduct() {
+  if (!currentUser) { toast('Debes iniciar sesión para comprar', true); openLogin(); return; }
+  if (!selectedProduct) { toast('Selecciona un producto primero', true); return; }
+  try {
+    db.run(
+      `INSERT INTO ordenes(catch_id,comprador_id,comprador_nombre,especie,cantidad_kg,total_usd)
+       VALUES(?,?,?,?,?,?)`,
+      [selectedProduct.catchId, currentUser.id, currentUser.nombre,
+       selectedProduct.especie, selectedProduct.pesoKg,
+       +(selectedProduct.pesoKg * selectedProduct.precioKg).toFixed(2)]
+    );
+    db.run("UPDATE capturas SET disponible=0 WHERE catch_id=?", [selectedProduct.catchId]);
+    saveDB();
+    toast(`✅ Pedido realizado: ${selectedProduct.especie} · $${(selectedProduct.pesoKg * selectedProduct.precioKg).toFixed(2)}`);
+    selectedProduct = null;
+    loadMarketplace();
+  } catch(e) { toast('Error al comprar: ' + e.message, true); }
+}
+
+// ════════════════════════════════════
+//  ADMIN
+// ════════════════════════════════════
+
+function openAdminLogin() { openModal('modal-admin-login'); }
+
+function doAdminLogin() {
+  const u = (document.getElementById('adminUser').value || '').trim();
+  const p = (document.getElementById('adminPass').value || '');
+  if (u === 'admin' && p === '123456') {
+    closeModal('modal-admin-login');
+    loadAdminStats();
+    openModal('modal-admin');
+  } else {
+    toast('Credenciales de administrador incorrectas', true);
+  }
+}
+
+function loadAdminStats() {
+  const users    = db.exec("SELECT COUNT(*) FROM usuarios")[0].values[0][0];
+  const catches  = db.exec("SELECT COUNT(*) FROM capturas")[0].values[0][0];
+  const orders   = db.exec("SELECT COUNT(*) FROM ordenes")[0].values[0][0];
+  const revenue  = db.exec("SELECT COALESCE(SUM(total_usd),0) FROM ordenes")[0].values[0][0];
+  document.getElementById('adminStats').innerHTML =
+    `👥 ${users} usuarios · 🐟 ${catches} capturas · 📦 ${orders} órdenes · 💰 $${parseFloat(revenue).toFixed(2)}`;
+}
+
+function adminExport() {
+  const users   = db.exec("SELECT * FROM usuarios").map(r => r.values.map(v => rowToObj(r.columns, v)))[0] || [];
+  const catches = db.exec("SELECT * FROM capturas").map(r => r.values.map(v => rowToObj(r.columns, v)))[0] || [];
+  const orders  = db.exec("SELECT * FROM ordenes").map(r => r.values.map(v => rowToObj(r.columns, v)))[0] || [];
+  const data    = { exportado: new Date().toISOString(), usuarios: users, capturas: catches, ordenes: orders };
+  const blob    = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `fishnet_backup_${Date.now()}.json`;
+  a.click();
+  toast('Base de datos exportada ✅');
+}
+
+function adminViewUsers() {
+  const res = db.exec("SELECT nombre, email, rol, puerto, creado_en FROM usuarios ORDER BY id");
+  if (!res.length || !res[0].values.length) { toast('Sin usuarios registrados'); return; }
+  const cols = res[0].columns;
+  const list = res[0].values.map(v => {
+    const o = rowToObj(cols, v);
+    return `${o.nombre} (${o.rol}) — ${o.email}`;
+  }).join('\n');
+  alert('USUARIOS REGISTRADOS:\n\n' + list);
+}
+
+function adminClearCatches() {
+  if (!confirm('¿Eliminar TODAS las capturas? Esta acción no se puede deshacer.')) return;
+  db.run("DELETE FROM capturas");
+  db.run("DELETE FROM ordenes");
+  saveDB();
+  loadMarketplace();
+  toast('Capturas y órdenes eliminadas');
+  closeModal('modal-admin');
+}
+
+// ════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════
+const SCREENS = ['s-home','s-pescador','s-comprador','s-mapa','s-qr'];
+let currentIdx = 0;
+
+function goTo(screenId, idx) {
+  document.getElementById(SCREENS[currentIdx]).classList.remove('active');
+  document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+  currentIdx = idx;
+  document.getElementById(screenId).classList.add('active');
+  // Cargar datos al entrar a pantallas
+  if (screenId === 's-comprador') loadMarketplace();
+  if (screenId === 's-pescador')  { loadMyCatches(); evalSem(); }
+  if (screenId === 's-mapa')      { initMapScreen(); }
+}
+
+function requireLogin(screen, idx) {
+  if (currentUser) { goTo(screen, idx); }
+  else {
+    pendingScreen = screen;
+    pendingIdx    = idx;
+    toast('Debes iniciar sesión primero', true);
+    setTimeout(() => openModal('modal-login'), 400);
+  }
+}
+
+// ════════════════════════════════════
+//  UTILIDADES
+// ════════════════════════════════════
+
+function openModal(id)  { const m = document.getElementById(id); if(m) m.classList.add('open'); }
+function closeModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('open'); }
+function confirmSOS()   { closeModal('modal-sos'); toast('🚨 SOS enviado (simulado) · Rescatistas alertados'); }
+
+let toastTimer;
+function toast(msg, isErr = false) {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast' + (isErr ? ' error' : '');
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function updateTime() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('statusTime').textContent = h + ':' + m;
+}
+
+
+// ════════════════════════════════════
+//  GPS Y MAPA
+// ════════════════════════════════════
+let userLat = 10.55;
+let userLng = -67.35;
+
+function locateMe() {
+  if (!navigator.geolocation) {
+    toast('Tu dispositivo no soporta GPS', true);
+    return;
+  }
+  document.getElementById('gpsStatusText').textContent = 'Obteniendo ubicación GPS...';
+  document.getElementById('gpsBtn').textContent = '⏳ GPS';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+      // Actualizar iframe con nueva posición
+      const src = `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d5000!2d${userLng}!3d${userLat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1ses!2sve!4v${Date.now()}!5m2!1ses!2sve`;
+      document.getElementById('mapFrame').src = src;
+      document.getElementById('coordsBadge').textContent = userLat.toFixed(4) + '°N  ' + Math.abs(userLng).toFixed(4) + '°W';
+      document.getElementById('gpsStatusText').textContent = '📍 Posición real · Precisión: ±' + acc + 'm';
+      document.getElementById('gpsBtn').textContent = '✓ GPS';
+      // Actualizar modal SOS con coords reales
+      document.querySelector('#modal-sos .modal-sub').textContent = 'Se enviará SMS con GPS real y condiciones climáticas';
+      toast('📍 Ubicación GPS obtenida (' + userLat.toFixed(5) + ', ' + userLng.toFixed(5) + ')');
+    },
+    err => {
+      const msgs = {1:'Permiso GPS denegado',2:'GPS no disponible',3:'Tiempo agotado'};
+      document.getElementById('gpsStatusText').textContent = '⚠ ' + (msgs[err.code] || 'Error GPS');
+      document.getElementById('gpsBtn').textContent = '📍 GPS';
+      toast('GPS: ' + (msgs[err.code] || err.message), true);
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+  );
+}
+
+function openInGoogleMaps() {
+  const url = `https://www.google.com/maps?q=${userLat},${userLng}&z=13`;
+  window.open(url, '_blank');
+}
+
+// ── Auto-intentar GPS al entrar al mapa ──────────────────
+function initMapScreen() {
+  // Intentar GPS silencioso al cargar mapa
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        const src = `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d5000!2d${userLng}!3d${userLat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1ses!2sve!4v${Date.now()}!5m2!1ses!2sve`;
+        document.getElementById('mapFrame').src = src;
+        document.getElementById('coordsBadge').textContent = userLat.toFixed(4) + '°N  ' + Math.abs(userLng).toFixed(4) + '°W';
+        document.getElementById('gpsStatusText').textContent = '📍 GPS activo · ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
+        document.getElementById('gpsBtn').textContent = '✓ GPS';
+      },
+      () => {
+        document.getElementById('gpsStatusText').textContent = 'Toca GPS para obtener tu ubicación real';
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  }
+}
+
+// ── ARRANQUE ────────────────────────────────────────────
+initDB();
+</script>
+</body>
+</html>
